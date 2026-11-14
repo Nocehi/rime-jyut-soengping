@@ -89,8 +89,13 @@ a e r 三鍵不作音節起點，留給日後的旁路鍵。
 
 - 內容：粵文維基（2026-10 dump）＋ HKCanCor 的詞 n-gram 計數。
 - 要求：librime-octagram 插件。版本要求見 Release 說明。
-- 授權：見 Release 說明。
+- 授權：CC BY-SA 4.0。署名粵文維基和 HKCanCor。
 
 ## 授權
 
-待定。各檔案的上游授權見 [NOTICE.md](NOTICE.md)。
+- 本方案作者的檔案（方案、自寫 lua、速查表、範例、文件）：[CC BY 4.0](LICENSE)。
+- `lua/select_character.lua`：改自 LGPL-3.0 的上游，所以保持 [LGPL-3.0](LICENSES/LGPL-3.0.txt)。
+- `loengfan_shuangpin.dict.yaml`：沿用上游 rime-loengfan 的 CC BY 4.0。
+- Release 附件 `yue-mix.gram`：CC BY-SA 4.0（因為含粵文維基的統計）。
+
+各檔案的來源見 [NOTICE.md](NOTICE.md)。

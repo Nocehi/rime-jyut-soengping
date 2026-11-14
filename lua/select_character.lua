@@ -1,5 +1,6 @@
 -- 以詞定字
 -- 原腳本 https://github.com/BlindingDark/rime-lua-select-character
+-- 授權：LGPL-3.0（同上游），全文見 LICENSES/LGPL-3.0.txt
 -- 2026-10-30：
 --   * 按鍵由 key_binder/select_first_character、select_last_character 讀取，冇設定就用 [ ]
 --   * select_character/mode: menu（手機用）：按一次鍵，候選欄變成每個詞嘅首字／尾字，點選上屏；
