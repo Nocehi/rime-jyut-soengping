@@ -1,0 +1,5 @@
+# 範例：把粵拼雙拼加入方案清單（已有 default.custom.yaml 就只加 jyut6ping3_shuangpin 那一行）
+patch:
+  schema_list:
+    - schema: jyut6ping3_shuangpin
+    - schema: jyut6ping3

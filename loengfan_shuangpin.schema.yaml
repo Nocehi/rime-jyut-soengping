@@ -1,0 +1,31 @@
+# Rime schema
+# encoding: utf-8
+#
+# 輔助方案：只為編譯 loengfan_shuangpin 字典，供 jyut6ping3_shuangpin 的 r 兩分反查使用。
+
+schema:
+  schema_id: loengfan_shuangpin
+  name: 粵語兩分（雙拼碼）
+  version: "0.3"
+  description: |-
+    粵語兩分，部件讀音用粵拼雙拼碼。由 jyut6ping3_shuangpin 引用。
+
+engine:
+  processors:
+    - ascii_composer
+    - speller
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - abc_segmentor
+    - fallback_segmentor
+  translators:
+    - table_translator
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+
+translator:
+  dictionary: loengfan_shuangpin
+  enable_user_dict: false

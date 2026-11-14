@@ -1,0 +1,18 @@
+# 粵拼雙拼：載入粵語語法模型 yue-mix.gram（可選）
+#
+# 用法：
+#   1. 從 Release 下載 yue-mix.gram，放入 Rime 用戶資料夾。
+#   2. 把本檔複製到 Rime 用戶資料夾，檔名不變。
+#   3. 重新部署。
+#
+# 要求：librime 要有 octagram 插件。
+# 移除本檔即還原為無模型。
+patch:
+  grammar/language: yue-mix
+  grammar/collocation_max_length: 4
+  grammar/collocation_min_length: 3
+  grammar/collocation_penalty: -6
+  grammar/non_collocation_penalty: -12
+  grammar/weak_collocation_penalty: -18
+  grammar/rear_penalty: -12
+  translator/contextual_suggestions: true

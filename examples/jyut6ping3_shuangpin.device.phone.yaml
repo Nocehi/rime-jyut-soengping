@@ -1,0 +1,13 @@
+# 手機專用：以詞定字改用選單模式（手機鍵盤字母層沒有 [ ]）
+#
+# 用法：複製到手機的 Rime 用戶資料夾，改名為 jyut6ping3_shuangpin.device.yaml，再重新部署。
+# 本檔只屬於一部裝置。從桌面同步方案時，不要覆蓋它。
+#
+# 效果：打字時按 , 取首字，按 . 取末字（候選欄變成首字／末字，點選上屏）。
+# 再按同一個鍵，上屏高亮的字。退格或 Esc 返回詞語候選。
+# 代價：有候選時 , . 不再翻頁。
+patch:
+  key_binder/select_first_character: comma
+  key_binder/select_last_character: period
+  select_character/mode: menu
+  engine/filters/@next: lua_filter@*select_character_filter

@@ -1,0 +1,5 @@
+*.gram
+*.userdb/
+build/
+commit_log/
+*.device.yaml

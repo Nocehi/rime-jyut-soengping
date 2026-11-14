@@ -1,0 +1,737 @@
+# Rime schema
+# encoding: utf-8
+#
+# 粵拼雙拼：rime-cantonese（jyut6ping3）之上的雙拼 algebra，唔改字典。
+#
+# 每個音節固定兩鍵：聲母鍵 + 韻母鍵；之後可選打聲調（v=1 vv=4 x=2 xx=5 q=3 qq=6，同 jyut6ping3 一樣）。
+# 聲母鍵：b p m f d t n l g k h w z c s j 照打；ng=y gw=u kw=i 零聲母=o（右手上排 y u i o）。
+# 粵拼聲母唔會用 a e q r v x 開頭，所以呢六個鍵永遠唔係音節起點：
+#   v x q 做聲調、x 筆畫反查，a e r 留做將來嘅輔碼（rq 日期、uq 時間由 date_time.lua 提供）。
+#   U 開頭：拆字，兩套一齊出：小鶴拆字（radical_flypy，部件用小鶴碼）同粵語兩分（部件用本方案雙拼碼：林 = Umama）。[ ] 以詞定字（lua/select_character.lua）。
+#
+# 韻母鍵（每鍵按語料頻率排）：
+#   a  ap it a
+#   b  in em
+#   c  au
+#   d  ai ot
+#   e  e ak oe
+#   f  at oi et
+#   g  ang aang eng
+#   h  ong
+#   i  i ok
+#   j  an aap
+#   k  ing ng
+#   l  oeng aai ep
+#   m  im aat ek
+#   n  ik aau
+#   o  o
+#   p  aan ip
+#   q  iu on
+#   r  yun ut eu
+#   s  ung
+#   t  uk eot yut
+#   u  u eon aak
+#   v  eoi m ui
+#   w  ei yu
+#   x  aa
+#   y  aam un oek
+#   z  ou am
+#
+# 鍵位嚟源：同小鶴雙拼拼寫相同嘅韻母沿用小鶴鍵（ai d、an j、ei w、eng g、in b、ing k、ou z、iu q、ui v、un y），
+# 讀音對應普通話嘅用小鶴對應韻母鍵（ung≈ong s、ong≈ang h、ang/aang≈eng g、au≈ao c、aa≈ia/ua x、oeng≈iang l、aau≈iao n、im≈ian m、ip≈ie p、yun≈üan r、yut≈üe t、eoi≈ü v），
+# 長右短左：長音 aai aam aan aap aat aak 喺右手，短音 am ap at ak 喺左手（aa、an 係小鶴釘位，aang 跟 ang 喺 G）。
+# 每鍵最多三個韻母；其餘由語料加權模擬退火排位。aai/ai、aan/an、aau/au 強制分鍵。
+
+schema:
+  schema_id: jyut6ping3_shuangpin
+  name: 粵拼雙拼
+  version: "0.3"
+  author:
+    - Nocehi
+  description: |-
+    粵拼雙拼（實驗版，dogfood 中）
+    字典、語言模型同反查沿用 rime-cantonese 嘅 jyut6ping3。
+  dependencies:
+    - jyut6ping3
+    - loengfan_shuangpin
+    - stroke
+    - radical
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [ 粵, 英 ]
+  - name: full_shape
+    states: [ 半角, 全角 ]
+  - options: [ noop, variants_hk, trad_tw, simplification ]
+    states: [ 傳統漢字, 香港傳統漢字, 臺灣傳統漢字, 大陆简化汉字 ]
+    reset: 1
+  - name: ascii_punct
+    states: [ 。，, ．， ]
+
+engine:
+  processors:
+    - ascii_composer
+    - lua_processor@*select_character
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - affix_segmentor@stroke
+    - affix_segmentor@radical_lookup
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - script_translator
+    - table_translator@loengfan
+    - table_translator@stroke
+    - table_translator@radical_lookup
+    - lua_translator@*date_time
+  filters:
+    - simplifier
+    - simplifier@variants_hk
+    - simplifier@trad_tw
+    - uniquifier
+    - reverse_lookup_filter@jyut6ping3_reverse_lookup
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+  algebra:
+    # 模糊音（喺 jyut6ping3 原碼上做，所以要放最前）。取消註釋即啓用：
+    #- derive/^ng([aeiou])/$1/        # 疑影交替：ng- 通 Ø-
+    #- derive/^([aeiou])/ng$1/        #           Ø- 通 ng-
+    #- derive/^n(?!g)/l/              # 泥來合流
+    #- derive/^(g|k)wo/$1o/           # gw-/kw- 喺 o 前併入 g-/k-（國讀若各）
+
+    # 1. 聲母 → 大寫鍵（大寫防止後面規則再改寫，最後先 xlit 轉返細階）
+    - xform/^gw/U/
+    - xform/^kw/I/
+    - xform/^ng(?=[aeiou])/Y/
+    - xform/^(m|ng)(?=\d)/O$1/        # 自成音節 m、ng：零聲母
+    - xform/^([aeiou])/O$1/           # 零聲母
+    - xform/^([bpmfdtnlgkhwzcsj])/\U$1\E/
+
+    # 2. 韻母 → 大寫鍵
+    - xform/^([A-Z])aang(\d?)$/$1G$2/
+    - xform/^([A-Z])oeng(\d?)$/$1L$2/
+    - xform/^([A-Z])aai(\d?)$/$1L$2/
+    - xform/^([A-Z])aak(\d?)$/$1U$2/
+    - xform/^([A-Z])aam(\d?)$/$1Y$2/
+    - xform/^([A-Z])aan(\d?)$/$1P$2/
+    - xform/^([A-Z])aap(\d?)$/$1J$2/
+    - xform/^([A-Z])aat(\d?)$/$1M$2/
+    - xform/^([A-Z])aau(\d?)$/$1N$2/
+    - xform/^([A-Z])ang(\d?)$/$1G$2/
+    - xform/^([A-Z])eng(\d?)$/$1G$2/
+    - xform/^([A-Z])eoi(\d?)$/$1V$2/
+    - xform/^([A-Z])eon(\d?)$/$1U$2/
+    - xform/^([A-Z])eot(\d?)$/$1T$2/
+    - xform/^([A-Z])ing(\d?)$/$1K$2/
+    - xform/^([A-Z])oek(\d?)$/$1Y$2/
+    - xform/^([A-Z])ong(\d?)$/$1H$2/
+    - xform/^([A-Z])ung(\d?)$/$1S$2/
+    - xform/^([A-Z])yun(\d?)$/$1R$2/
+    - xform/^([A-Z])yut(\d?)$/$1T$2/
+    - xform/^([A-Z])aa(\d?)$/$1X$2/
+    - xform/^([A-Z])ai(\d?)$/$1D$2/
+    - xform/^([A-Z])ak(\d?)$/$1E$2/
+    - xform/^([A-Z])am(\d?)$/$1Z$2/
+    - xform/^([A-Z])an(\d?)$/$1J$2/
+    - xform/^([A-Z])ap(\d?)$/$1A$2/
+    - xform/^([A-Z])at(\d?)$/$1F$2/
+    - xform/^([A-Z])au(\d?)$/$1C$2/
+    - xform/^([A-Z])ei(\d?)$/$1W$2/
+    - xform/^([A-Z])ek(\d?)$/$1M$2/
+    - xform/^([A-Z])em(\d?)$/$1B$2/
+    - xform/^([A-Z])ep(\d?)$/$1L$2/
+    - xform/^([A-Z])et(\d?)$/$1F$2/
+    - xform/^([A-Z])eu(\d?)$/$1R$2/
+    - xform/^([A-Z])ik(\d?)$/$1N$2/
+    - xform/^([A-Z])im(\d?)$/$1M$2/
+    - xform/^([A-Z])in(\d?)$/$1B$2/
+    - xform/^([A-Z])ip(\d?)$/$1P$2/
+    - xform/^([A-Z])it(\d?)$/$1A$2/
+    - xform/^([A-Z])iu(\d?)$/$1Q$2/
+    - xform/^([A-Z])ng(\d?)$/$1K$2/
+    - xform/^([A-Z])oe(\d?)$/$1E$2/
+    - xform/^([A-Z])oi(\d?)$/$1F$2/
+    - xform/^([A-Z])ok(\d?)$/$1I$2/
+    - xform/^([A-Z])on(\d?)$/$1Q$2/
+    - xform/^([A-Z])ot(\d?)$/$1D$2/
+    - xform/^([A-Z])ou(\d?)$/$1Z$2/
+    - xform/^([A-Z])ui(\d?)$/$1V$2/
+    - xform/^([A-Z])uk(\d?)$/$1T$2/
+    - xform/^([A-Z])un(\d?)$/$1Y$2/
+    - xform/^([A-Z])ut(\d?)$/$1R$2/
+    - xform/^([A-Z])yu(\d?)$/$1W$2/
+    - xform/^([A-Z])a(\d?)$/$1A$2/
+    - xform/^([A-Z])e(\d?)$/$1E$2/
+    - xform/^([A-Z])i(\d?)$/$1I$2/
+    - xform/^([A-Z])m(\d?)$/$1V$2/
+    - xform/^([A-Z])o(\d?)$/$1O$2/
+    - xform/^([A-Z])u(\d?)$/$1U$2/
+
+    # 3. 聲調可選：唔打調都得
+    - derive/\d$//
+    - xform/1$/V/
+    - xform/4$/VV/
+    - xform/2$/X/
+    - xform/5$/XX/
+    - xform/3$/Q/
+    - xform/6$/QQ/
+    - xlit/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/
+
+    # 4. 聲母簡拼
+    - abbrev/^([a-z]).+$/$1/
+
+translator:
+  dictionary: jyut6ping3
+  prism: jyut6ping3_shuangpin
+  spelling_hints: 8
+  preedit_format:
+    - "xform~(^|[ '])ba(?=$|[ 'vxq])~$1BIT~"
+    - "xform~(^|[ '])bb(?=$|[ 'vxq])~$1BIN~"
+    - "xform~(^|[ '])bc(?=$|[ 'vxq])~$1BAU~"
+    - "xform~(^|[ '])bd(?=$|[ 'vxq])~$1BAI~"
+    - "xform~(^|[ '])be(?=$|[ 'vxq])~$1BAK/BE~"
+    - "xform~(^|[ '])bf(?=$|[ 'vxq])~$1BAT~"
+    - "xform~(^|[ '])bg(?=$|[ 'vxq])~$1BENG/BANG…~"
+    - "xform~(^|[ '])bh(?=$|[ 'vxq])~$1BONG~"
+    - "xform~(^|[ '])bi(?=$|[ 'vxq])~$1BOK/BI~"
+    - "xform~(^|[ '])bj(?=$|[ 'vxq])~$1BAN~"
+    - "xform~(^|[ '])bk(?=$|[ 'vxq])~$1BING~"
+    - "xform~(^|[ '])bl(?=$|[ 'vxq])~$1BAAI~"
+    - "xform~(^|[ '])bm(?=$|[ 'vxq])~$1BAAT/BEK~"
+    - "xform~(^|[ '])bn(?=$|[ 'vxq])~$1BAAU/BIK~"
+    - "xform~(^|[ '])bo(?=$|[ 'vxq])~$1BO~"
+    - "xform~(^|[ '])bp(?=$|[ 'vxq])~$1BAAN~"
+    - "xform~(^|[ '])bq(?=$|[ 'vxq])~$1BIU/BON~"
+    - "xform~(^|[ '])br(?=$|[ 'vxq])~$1BUT~"
+    - "xform~(^|[ '])bs(?=$|[ 'vxq])~$1BUNG~"
+    - "xform~(^|[ '])bt(?=$|[ 'vxq])~$1BUK~"
+    - "xform~(^|[ '])bu(?=$|[ 'vxq])~$1BAAK~"
+    - "xform~(^|[ '])bv(?=$|[ 'vxq])~$1BUI~"
+    - "xform~(^|[ '])bw(?=$|[ 'vxq])~$1BEI~"
+    - "xform~(^|[ '])bx(?=$|[ 'vxq])~$1BAA~"
+    - "xform~(^|[ '])by(?=$|[ 'vxq])~$1BUN~"
+    - "xform~(^|[ '])bz(?=$|[ 'vxq])~$1BOU/BAM~"
+    - "xform~(^|[ '])ca(?=$|[ 'vxq])~$1CIT/CAP~"
+    - "xform~(^|[ '])cb(?=$|[ 'vxq])~$1CIN~"
+    - "xform~(^|[ '])cc(?=$|[ 'vxq])~$1CAU~"
+    - "xform~(^|[ '])cd(?=$|[ 'vxq])~$1CAI~"
+    - "xform~(^|[ '])ce(?=$|[ 'vxq])~$1CE/CAK~"
+    - "xform~(^|[ '])cf(?=$|[ 'vxq])~$1COI/CAT~"
+    - "xform~(^|[ '])cg(?=$|[ 'vxq])~$1CANG/CAANG…~"
+    - "xform~(^|[ '])ch(?=$|[ 'vxq])~$1CONG~"
+    - "xform~(^|[ '])ci(?=$|[ 'vxq])~$1CI/COK~"
+    - "xform~(^|[ '])cj(?=$|[ 'vxq])~$1CAN/CAAP~"
+    - "xform~(^|[ '])ck(?=$|[ 'vxq])~$1CING~"
+    - "xform~(^|[ '])cl(?=$|[ 'vxq])~$1COENG/CAAI~"
+    - "xform~(^|[ '])cm(?=$|[ 'vxq])~$1CAAT/CIM…~"
+    - "xform~(^|[ '])cn(?=$|[ 'vxq])~$1CAAU/CIK~"
+    - "xform~(^|[ '])co(?=$|[ 'vxq])~$1CO~"
+    - "xform~(^|[ '])cp(?=$|[ 'vxq])~$1CAAN/CIP~"
+    - "xform~(^|[ '])cq(?=$|[ 'vxq])~$1CIU~"
+    - "xform~(^|[ '])cr(?=$|[ 'vxq])~$1CYUN~"
+    - "xform~(^|[ '])cs(?=$|[ 'vxq])~$1CUNG~"
+    - "xform~(^|[ '])ct(?=$|[ 'vxq])~$1CEOT/CUK…~"
+    - "xform~(^|[ '])cu(?=$|[ 'vxq])~$1CAAK/CEON~"
+    - "xform~(^|[ '])cv(?=$|[ 'vxq])~$1CEOI~"
+    - "xform~(^|[ '])cw(?=$|[ 'vxq])~$1CYU~"
+    - "xform~(^|[ '])cx(?=$|[ 'vxq])~$1CAA~"
+    - "xform~(^|[ '])cy(?=$|[ 'vxq])~$1CAAM/COEK~"
+    - "xform~(^|[ '])cz(?=$|[ 'vxq])~$1COU/CAM~"
+    - "xform~(^|[ '])da(?=$|[ 'vxq])~$1DIT/DAP~"
+    - "xform~(^|[ '])db(?=$|[ 'vxq])~$1DIN~"
+    - "xform~(^|[ '])dc(?=$|[ 'vxq])~$1DAU~"
+    - "xform~(^|[ '])dd(?=$|[ 'vxq])~$1DAI~"
+    - "xform~(^|[ '])de(?=$|[ 'vxq])~$1DAK/DE…~"
+    - "xform~(^|[ '])df(?=$|[ 'vxq])~$1DOI/DAT~"
+    - "xform~(^|[ '])dg(?=$|[ 'vxq])~$1DANG/DENG~"
+    - "xform~(^|[ '])dh(?=$|[ 'vxq])~$1DONG~"
+    - "xform~(^|[ '])di(?=$|[ 'vxq])~$1DI/DOK~"
+    - "xform~(^|[ '])dj(?=$|[ 'vxq])~$1DAAP/DAN~"
+    - "xform~(^|[ '])dk(?=$|[ 'vxq])~$1DING~"
+    - "xform~(^|[ '])dl(?=$|[ 'vxq])~$1DAAI/DOENG~"
+    - "xform~(^|[ '])dm(?=$|[ 'vxq])~$1DIM/DAAT…~"
+    - "xform~(^|[ '])dn(?=$|[ 'vxq])~$1DIK~"
+    - "xform~(^|[ '])do(?=$|[ 'vxq])~$1DO~"
+    - "xform~(^|[ '])dp(?=$|[ 'vxq])~$1DAAN/DIP~"
+    - "xform~(^|[ '])dq(?=$|[ 'vxq])~$1DIU~"
+    - "xform~(^|[ '])dr(?=$|[ 'vxq])~$1DYUN/DEU~"
+    - "xform~(^|[ '])ds(?=$|[ 'vxq])~$1DUNG~"
+    - "xform~(^|[ '])dt(?=$|[ 'vxq])~$1DUK/DYUT…~"
+    - "xform~(^|[ '])du(?=$|[ 'vxq])~$1DEON/DAAK~"
+    - "xform~(^|[ '])dv(?=$|[ 'vxq])~$1DEOI~"
+    - "xform~(^|[ '])dw(?=$|[ 'vxq])~$1DEI~"
+    - "xform~(^|[ '])dx(?=$|[ 'vxq])~$1DAA~"
+    - "xform~(^|[ '])dy(?=$|[ 'vxq])~$1DAAM/DOEK~"
+    - "xform~(^|[ '])dz(?=$|[ 'vxq])~$1DOU/DAM~"
+    - "xform~(^|[ '])fc(?=$|[ 'vxq])~$1FAU~"
+    - "xform~(^|[ '])fd(?=$|[ 'vxq])~$1FAI~"
+    - "xform~(^|[ '])fe(?=$|[ 'vxq])~$1FE~"
+    - "xform~(^|[ '])ff(?=$|[ 'vxq])~$1FAT~"
+    - "xform~(^|[ '])fg(?=$|[ 'vxq])~$1FANG~"
+    - "xform~(^|[ '])fh(?=$|[ 'vxq])~$1FONG~"
+    - "xform~(^|[ '])fi(?=$|[ 'vxq])~$1FOK~"
+    - "xform~(^|[ '])fj(?=$|[ 'vxq])~$1FAN~"
+    - "xform~(^|[ '])fk(?=$|[ 'vxq])~$1FING~"
+    - "xform~(^|[ '])fl(?=$|[ 'vxq])~$1FAAI~"
+    - "xform~(^|[ '])fm(?=$|[ 'vxq])~$1FAAT~"
+    - "xform~(^|[ '])fn(?=$|[ 'vxq])~$1FIK~"
+    - "xform~(^|[ '])fo(?=$|[ 'vxq])~$1FO~"
+    - "xform~(^|[ '])fp(?=$|[ 'vxq])~$1FAAN~"
+    - "xform~(^|[ '])fq(?=$|[ 'vxq])~$1FIU~"
+    - "xform~(^|[ '])fr(?=$|[ 'vxq])~$1FUT~"
+    - "xform~(^|[ '])fs(?=$|[ 'vxq])~$1FUNG~"
+    - "xform~(^|[ '])ft(?=$|[ 'vxq])~$1FUK~"
+    - "xform~(^|[ '])fu(?=$|[ 'vxq])~$1FU/FAAK~"
+    - "xform~(^|[ '])fv(?=$|[ 'vxq])~$1FUI~"
+    - "xform~(^|[ '])fw(?=$|[ 'vxq])~$1FEI~"
+    - "xform~(^|[ '])fx(?=$|[ 'vxq])~$1FAA~"
+    - "xform~(^|[ '])fy(?=$|[ 'vxq])~$1FUN~"
+    - "xform~(^|[ '])ga(?=$|[ 'vxq])~$1GA/GIT…~"
+    - "xform~(^|[ '])gb(?=$|[ 'vxq])~$1GIN~"
+    - "xform~(^|[ '])gc(?=$|[ 'vxq])~$1GAU~"
+    - "xform~(^|[ '])gd(?=$|[ 'vxq])~$1GAI/GOT~"
+    - "xform~(^|[ '])ge(?=$|[ 'vxq])~$1GE/GOE…~"
+    - "xform~(^|[ '])gf(?=$|[ 'vxq])~$1GOI/GAT~"
+    - "xform~(^|[ '])gg(?=$|[ 'vxq])~$1GANG/GENG…~"
+    - "xform~(^|[ '])gh(?=$|[ 'vxq])~$1GONG~"
+    - "xform~(^|[ '])gi(?=$|[ 'vxq])~$1GOK/GI~"
+    - "xform~(^|[ '])gj(?=$|[ 'vxq])~$1GAN/GAAP~"
+    - "xform~(^|[ '])gk(?=$|[ 'vxq])~$1GING~"
+    - "xform~(^|[ '])gl(?=$|[ 'vxq])~$1GAAI/GOENG…~"
+    - "xform~(^|[ '])gm(?=$|[ 'vxq])~$1GIM/GAAT~"
+    - "xform~(^|[ '])gn(?=$|[ 'vxq])~$1GAAU/GIK~"
+    - "xform~(^|[ '])go(?=$|[ 'vxq])~$1GO~"
+    - "xform~(^|[ '])gp(?=$|[ 'vxq])~$1GAAN/GIP~"
+    - "xform~(^|[ '])gq(?=$|[ 'vxq])~$1GIU/GON~"
+    - "xform~(^|[ '])gr(?=$|[ 'vxq])~$1GYUN/GUT~"
+    - "xform~(^|[ '])gs(?=$|[ 'vxq])~$1GUNG~"
+    - "xform~(^|[ '])gt(?=$|[ 'vxq])~$1GUK/GYUT~"
+    - "xform~(^|[ '])gu(?=$|[ 'vxq])~$1GU/GAAK~"
+    - "xform~(^|[ '])gv(?=$|[ 'vxq])~$1GEOI/GUI~"
+    - "xform~(^|[ '])gw(?=$|[ 'vxq])~$1GEI~"
+    - "xform~(^|[ '])gx(?=$|[ 'vxq])~$1GAA~"
+    - "xform~(^|[ '])gy(?=$|[ 'vxq])~$1GUN/GOEK…~"
+    - "xform~(^|[ '])gz(?=$|[ 'vxq])~$1GAM/GOU~"
+    - "xform~(^|[ '])ha(?=$|[ 'vxq])~$1HAP/HIT~"
+    - "xform~(^|[ '])hb(?=$|[ 'vxq])~$1HIN~"
+    - "xform~(^|[ '])hc(?=$|[ 'vxq])~$1HAU~"
+    - "xform~(^|[ '])hd(?=$|[ 'vxq])~$1HAI/HOT~"
+    - "xform~(^|[ '])he(?=$|[ 'vxq])~$1HAK/HOE…~"
+    - "xform~(^|[ '])hf(?=$|[ 'vxq])~$1HOI/HAT~"
+    - "xform~(^|[ '])hg(?=$|[ 'vxq])~$1HAANG/HANG…~"
+    - "xform~(^|[ '])hh(?=$|[ 'vxq])~$1HONG~"
+    - "xform~(^|[ '])hi(?=$|[ 'vxq])~$1HOK/HI~"
+    - "xform~(^|[ '])hj(?=$|[ 'vxq])~$1HAN/HAAP~"
+    - "xform~(^|[ '])hk(?=$|[ 'vxq])~$1HING/HNG~"
+    - "xform~(^|[ '])hl(?=$|[ 'vxq])~$1HOENG/HAAI~"
+    - "xform~(^|[ '])hm(?=$|[ 'vxq])~$1HIM/HEK~"
+    - "xform~(^|[ '])hn(?=$|[ 'vxq])~$1HAAU/HIK~"
+    - "xform~(^|[ '])ho(?=$|[ 'vxq])~$1HO~"
+    - "xform~(^|[ '])hp(?=$|[ 'vxq])~$1HAAN/HIP~"
+    - "xform~(^|[ '])hq(?=$|[ 'vxq])~$1HON/HIU~"
+    - "xform~(^|[ '])hr(?=$|[ 'vxq])~$1HYUN~"
+    - "xform~(^|[ '])hs(?=$|[ 'vxq])~$1HUNG~"
+    - "xform~(^|[ '])ht(?=$|[ 'vxq])~$1HYUT/HUK~"
+    - "xform~(^|[ '])hu(?=$|[ 'vxq])~$1HAAK~"
+    - "xform~(^|[ '])hv(?=$|[ 'vxq])~$1HEOI/HM~"
+    - "xform~(^|[ '])hw(?=$|[ 'vxq])~$1HEI~"
+    - "xform~(^|[ '])hx(?=$|[ 'vxq])~$1HAA~"
+    - "xform~(^|[ '])hy(?=$|[ 'vxq])~$1HAAM~"
+    - "xform~(^|[ '])hz(?=$|[ 'vxq])~$1HOU/HAM~"
+    - "xform~(^|[ '])id(?=$|[ 'vxq])~$1KWAI~"
+    - "xform~(^|[ '])ig(?=$|[ 'vxq])~$1KWAANG~"
+    - "xform~(^|[ '])ih(?=$|[ 'vxq])~$1KWONG~"
+    - "xform~(^|[ '])ii(?=$|[ 'vxq])~$1KWOK~"
+    - "xform~(^|[ '])ij(?=$|[ 'vxq])~$1KWAN~"
+    - "xform~(^|[ '])il(?=$|[ 'vxq])~$1KWAAI~"
+    - "xform~(^|[ '])in(?=$|[ 'vxq])~$1KWIK~"
+    - "xform~(^|[ '])ix(?=$|[ 'vxq])~$1KWAA~"
+    - "xform~(^|[ '])ja(?=$|[ 'vxq])~$1JAP/JIT~"
+    - "xform~(^|[ '])jb(?=$|[ 'vxq])~$1JIN~"
+    - "xform~(^|[ '])jc(?=$|[ 'vxq])~$1JAU~"
+    - "xform~(^|[ '])jd(?=$|[ 'vxq])~$1JAI~"
+    - "xform~(^|[ '])je(?=$|[ 'vxq])~$1JE~"
+    - "xform~(^|[ '])jf(?=$|[ 'vxq])~$1JAT~"
+    - "xform~(^|[ '])jg(?=$|[ 'vxq])~$1JENG~"
+    - "xform~(^|[ '])ji(?=$|[ 'vxq])~$1JI~"
+    - "xform~(^|[ '])jj(?=$|[ 'vxq])~$1JAN/JAAP~"
+    - "xform~(^|[ '])jk(?=$|[ 'vxq])~$1JING~"
+    - "xform~(^|[ '])jl(?=$|[ 'vxq])~$1JOENG/JAAI~"
+    - "xform~(^|[ '])jm(?=$|[ 'vxq])~$1JIM~"
+    - "xform~(^|[ '])jn(?=$|[ 'vxq])~$1JIK/JAAU~"
+    - "xform~(^|[ '])jo(?=$|[ 'vxq])~$1JO~"
+    - "xform~(^|[ '])jp(?=$|[ 'vxq])~$1JIP~"
+    - "xform~(^|[ '])jq(?=$|[ 'vxq])~$1JIU~"
+    - "xform~(^|[ '])jr(?=$|[ 'vxq])~$1JYUN~"
+    - "xform~(^|[ '])js(?=$|[ 'vxq])~$1JUNG~"
+    - "xform~(^|[ '])jt(?=$|[ 'vxq])~$1JUK/JYUT~"
+    - "xform~(^|[ '])ju(?=$|[ 'vxq])~$1JEON/JAAK~"
+    - "xform~(^|[ '])jv(?=$|[ 'vxq])~$1JEOI~"
+    - "xform~(^|[ '])jw(?=$|[ 'vxq])~$1JYU~"
+    - "xform~(^|[ '])jx(?=$|[ 'vxq])~$1JAA~"
+    - "xform~(^|[ '])jy(?=$|[ 'vxq])~$1JOEK~"
+    - "xform~(^|[ '])jz(?=$|[ 'vxq])~$1JAM~"
+    - "xform~(^|[ '])ka(?=$|[ 'vxq])~$1KAP/KIT~"
+    - "xform~(^|[ '])kb(?=$|[ 'vxq])~$1KIN~"
+    - "xform~(^|[ '])kc(?=$|[ 'vxq])~$1KAU~"
+    - "xform~(^|[ '])kd(?=$|[ 'vxq])~$1KAI~"
+    - "xform~(^|[ '])ke(?=$|[ 'vxq])~$1KE/KOE…~"
+    - "xform~(^|[ '])kf(?=$|[ 'vxq])~$1KOI/KAT~"
+    - "xform~(^|[ '])kg(?=$|[ 'vxq])~$1KANG/KENG~"
+    - "xform~(^|[ '])kh(?=$|[ 'vxq])~$1KONG~"
+    - "xform~(^|[ '])ki(?=$|[ 'vxq])~$1KOK~"
+    - "xform~(^|[ '])kj(?=$|[ 'vxq])~$1KAN~"
+    - "xform~(^|[ '])kk(?=$|[ 'vxq])~$1KING~"
+    - "xform~(^|[ '])kl(?=$|[ 'vxq])~$1KOENG/KAAI…~"
+    - "xform~(^|[ '])km(?=$|[ 'vxq])~$1KEK/KAAT…~"
+    - "xform~(^|[ '])kn(?=$|[ 'vxq])~$1KAAU/KIK~"
+    - "xform~(^|[ '])ko(?=$|[ 'vxq])~$1KO~"
+    - "xform~(^|[ '])kp(?=$|[ 'vxq])~$1KIP~"
+    - "xform~(^|[ '])kq(?=$|[ 'vxq])~$1KIU~"
+    - "xform~(^|[ '])kr(?=$|[ 'vxq])~$1KYUN/KUT~"
+    - "xform~(^|[ '])ks(?=$|[ 'vxq])~$1KUNG~"
+    - "xform~(^|[ '])kt(?=$|[ 'vxq])~$1KYUT/KUK~"
+    - "xform~(^|[ '])ku(?=$|[ 'vxq])~$1KU/KAAK~"
+    - "xform~(^|[ '])kv(?=$|[ 'vxq])~$1KEOI/KUI~"
+    - "xform~(^|[ '])kw(?=$|[ 'vxq])~$1KEI~"
+    - "xform~(^|[ '])kx(?=$|[ 'vxq])~$1KAA~"
+    - "xform~(^|[ '])ky(?=$|[ 'vxq])~$1KOEK/KAAM~"
+    - "xform~(^|[ '])kz(?=$|[ 'vxq])~$1KAM~"
+    - "xform~(^|[ '])la(?=$|[ 'vxq])~$1LIT/LA…~"
+    - "xform~(^|[ '])lb(?=$|[ 'vxq])~$1LIN/LEM~"
+    - "xform~(^|[ '])lc(?=$|[ 'vxq])~$1LAU~"
+    - "xform~(^|[ '])ld(?=$|[ 'vxq])~$1LAI~"
+    - "xform~(^|[ '])le(?=$|[ 'vxq])~$1LE/LAK~"
+    - "xform~(^|[ '])lf(?=$|[ 'vxq])~$1LOI/LAT~"
+    - "xform~(^|[ '])lg(?=$|[ 'vxq])~$1LENG/LAANG…~"
+    - "xform~(^|[ '])lh(?=$|[ 'vxq])~$1LONG~"
+    - "xform~(^|[ '])li(?=$|[ 'vxq])~$1LOK/LI~"
+    - "xform~(^|[ '])lj(?=$|[ 'vxq])~$1LAAP/LAN~"
+    - "xform~(^|[ '])lk(?=$|[ 'vxq])~$1LING~"
+    - "xform~(^|[ '])ll(?=$|[ 'vxq])~$1LOENG/LAAI~"
+    - "xform~(^|[ '])lm(?=$|[ 'vxq])~$1LIM/LEK…~"
+    - "xform~(^|[ '])ln(?=$|[ 'vxq])~$1LIK/LAAU~"
+    - "xform~(^|[ '])lo(?=$|[ 'vxq])~$1LO~"
+    - "xform~(^|[ '])lp(?=$|[ 'vxq])~$1LAAN/LIP~"
+    - "xform~(^|[ '])lq(?=$|[ 'vxq])~$1LIU~"
+    - "xform~(^|[ '])lr(?=$|[ 'vxq])~$1LYUN~"
+    - "xform~(^|[ '])ls(?=$|[ 'vxq])~$1LUNG~"
+    - "xform~(^|[ '])lt(?=$|[ 'vxq])~$1LUK/LEOT…~"
+    - "xform~(^|[ '])lu(?=$|[ 'vxq])~$1LEON/LAAK…~"
+    - "xform~(^|[ '])lv(?=$|[ 'vxq])~$1LEOI~"
+    - "xform~(^|[ '])lw(?=$|[ 'vxq])~$1LEI~"
+    - "xform~(^|[ '])lx(?=$|[ 'vxq])~$1LAA~"
+    - "xform~(^|[ '])ly(?=$|[ 'vxq])~$1LAAM/LOEK~"
+    - "xform~(^|[ '])lz(?=$|[ 'vxq])~$1LOU/LAM~"
+    - "xform~(^|[ '])ma(?=$|[ 'vxq])~$1MIT/MA~"
+    - "xform~(^|[ '])mb(?=$|[ 'vxq])~$1MIN~"
+    - "xform~(^|[ '])mc(?=$|[ 'vxq])~$1MAU~"
+    - "xform~(^|[ '])md(?=$|[ 'vxq])~$1MAI~"
+    - "xform~(^|[ '])me(?=$|[ 'vxq])~$1ME/MAK~"
+    - "xform~(^|[ '])mf(?=$|[ 'vxq])~$1MAT~"
+    - "xform~(^|[ '])mg(?=$|[ 'vxq])~$1MAANG/MENG…~"
+    - "xform~(^|[ '])mh(?=$|[ 'vxq])~$1MONG~"
+    - "xform~(^|[ '])mi(?=$|[ 'vxq])~$1MI/MOK~"
+    - "xform~(^|[ '])mj(?=$|[ 'vxq])~$1MAN~"
+    - "xform~(^|[ '])mk(?=$|[ 'vxq])~$1MING~"
+    - "xform~(^|[ '])ml(?=$|[ 'vxq])~$1MAAI~"
+    - "xform~(^|[ '])mm(?=$|[ 'vxq])~$1MAAT~"
+    - "xform~(^|[ '])mn(?=$|[ 'vxq])~$1MAAU/MIK~"
+    - "xform~(^|[ '])mo(?=$|[ 'vxq])~$1MO~"
+    - "xform~(^|[ '])mp(?=$|[ 'vxq])~$1MAAN~"
+    - "xform~(^|[ '])mq(?=$|[ 'vxq])~$1MIU~"
+    - "xform~(^|[ '])mr(?=$|[ 'vxq])~$1MUT/MEU~"
+    - "xform~(^|[ '])ms(?=$|[ 'vxq])~$1MUNG~"
+    - "xform~(^|[ '])mt(?=$|[ 'vxq])~$1MUK~"
+    - "xform~(^|[ '])mu(?=$|[ 'vxq])~$1MAAK~"
+    - "xform~(^|[ '])mv(?=$|[ 'vxq])~$1MUI~"
+    - "xform~(^|[ '])mw(?=$|[ 'vxq])~$1MEI~"
+    - "xform~(^|[ '])mx(?=$|[ 'vxq])~$1MAA~"
+    - "xform~(^|[ '])my(?=$|[ 'vxq])~$1MUN~"
+    - "xform~(^|[ '])mz(?=$|[ 'vxq])~$1MOU~"
+    - "xform~(^|[ '])na(?=$|[ 'vxq])~$1NAP/NIT~"
+    - "xform~(^|[ '])nb(?=$|[ 'vxq])~$1NIN~"
+    - "xform~(^|[ '])nc(?=$|[ 'vxq])~$1NAU~"
+    - "xform~(^|[ '])nd(?=$|[ 'vxq])~$1NAI~"
+    - "xform~(^|[ '])ne(?=$|[ 'vxq])~$1NE/NAK~"
+    - "xform~(^|[ '])nf(?=$|[ 'vxq])~$1NOI/NAT~"
+    - "xform~(^|[ '])ng(?=$|[ 'vxq])~$1NANG~"
+    - "xform~(^|[ '])nh(?=$|[ 'vxq])~$1NONG~"
+    - "xform~(^|[ '])ni(?=$|[ 'vxq])~$1NI/NOK~"
+    - "xform~(^|[ '])nj(?=$|[ 'vxq])~$1NAAP/NAN~"
+    - "xform~(^|[ '])nk(?=$|[ 'vxq])~$1NING~"
+    - "xform~(^|[ '])nl(?=$|[ 'vxq])~$1NAAI/NOENG~"
+    - "xform~(^|[ '])nm(?=$|[ 'vxq])~$1NIM/NAAT~"
+    - "xform~(^|[ '])nn(?=$|[ 'vxq])~$1NAAU/NIK~"
+    - "xform~(^|[ '])no(?=$|[ 'vxq])~$1NO~"
+    - "xform~(^|[ '])np(?=$|[ 'vxq])~$1NAAN/NIP~"
+    - "xform~(^|[ '])nq(?=$|[ 'vxq])~$1NIU~"
+    - "xform~(^|[ '])nr(?=$|[ 'vxq])~$1NYUN~"
+    - "xform~(^|[ '])ns(?=$|[ 'vxq])~$1NUNG~"
+    - "xform~(^|[ '])nt(?=$|[ 'vxq])~$1NEOT/NUK~"
+    - "xform~(^|[ '])nv(?=$|[ 'vxq])~$1NEOI~"
+    - "xform~(^|[ '])nw(?=$|[ 'vxq])~$1NEI~"
+    - "xform~(^|[ '])nx(?=$|[ 'vxq])~$1NAA~"
+    - "xform~(^|[ '])ny(?=$|[ 'vxq])~$1NAAM/NOEK~"
+    - "xform~(^|[ '])nz(?=$|[ 'vxq])~$1NAM/NOU~"
+    - "xform~(^|[ '])oa(?=$|[ 'vxq])~$1A/AP~"
+    - "xform~(^|[ '])oc(?=$|[ 'vxq])~$1AU~"
+    - "xform~(^|[ '])od(?=$|[ 'vxq])~$1AI~"
+    - "xform~(^|[ '])oe(?=$|[ 'vxq])~$1E/AK~"
+    - "xform~(^|[ '])of(?=$|[ 'vxq])~$1OI/AT~"
+    - "xform~(^|[ '])og(?=$|[ 'vxq])~$1ANG/AANG~"
+    - "xform~(^|[ '])oh(?=$|[ 'vxq])~$1ONG~"
+    - "xform~(^|[ '])oi(?=$|[ 'vxq])~$1OK~"
+    - "xform~(^|[ '])oj(?=$|[ 'vxq])~$1AAP~"
+    - "xform~(^|[ '])ok(?=$|[ 'vxq])~$1NG~"
+    - "xform~(^|[ '])ol(?=$|[ 'vxq])~$1AAI~"
+    - "xform~(^|[ '])om(?=$|[ 'vxq])~$1AAT~"
+    - "xform~(^|[ '])on(?=$|[ 'vxq])~$1AAU~"
+    - "xform~(^|[ '])oo(?=$|[ 'vxq])~$1O~"
+    - "xform~(^|[ '])op(?=$|[ 'vxq])~$1AAN~"
+    - "xform~(^|[ '])oq(?=$|[ 'vxq])~$1ON~"
+    - "xform~(^|[ '])os(?=$|[ 'vxq])~$1UNG~"
+    - "xform~(^|[ '])ot(?=$|[ 'vxq])~$1UK~"
+    - "xform~(^|[ '])ou(?=$|[ 'vxq])~$1AAK~"
+    - "xform~(^|[ '])ov(?=$|[ 'vxq])~$1M~"
+    - "xform~(^|[ '])ow(?=$|[ 'vxq])~$1EI~"
+    - "xform~(^|[ '])ox(?=$|[ 'vxq])~$1AA~"
+    - "xform~(^|[ '])oy(?=$|[ 'vxq])~$1AAM~"
+    - "xform~(^|[ '])oz(?=$|[ 'vxq])~$1AM/OU~"
+    - "xform~(^|[ '])pa(?=$|[ 'vxq])~$1PIT~"
+    - "xform~(^|[ '])pb(?=$|[ 'vxq])~$1PIN~"
+    - "xform~(^|[ '])pc(?=$|[ 'vxq])~$1PAU~"
+    - "xform~(^|[ '])pd(?=$|[ 'vxq])~$1PAI~"
+    - "xform~(^|[ '])pe(?=$|[ 'vxq])~$1PE~"
+    - "xform~(^|[ '])pf(?=$|[ 'vxq])~$1PET/PAT…~"
+    - "xform~(^|[ '])pg(?=$|[ 'vxq])~$1PANG/PAANG…~"
+    - "xform~(^|[ '])ph(?=$|[ 'vxq])~$1PONG~"
+    - "xform~(^|[ '])pi(?=$|[ 'vxq])~$1POK~"
+    - "xform~(^|[ '])pj(?=$|[ 'vxq])~$1PAN~"
+    - "xform~(^|[ '])pk(?=$|[ 'vxq])~$1PING~"
+    - "xform~(^|[ '])pl(?=$|[ 'vxq])~$1PAAI~"
+    - "xform~(^|[ '])pm(?=$|[ 'vxq])~$1PEK/PAAT~"
+    - "xform~(^|[ '])pn(?=$|[ 'vxq])~$1PAAU/PIK~"
+    - "xform~(^|[ '])po(?=$|[ 'vxq])~$1PO~"
+    - "xform~(^|[ '])pp(?=$|[ 'vxq])~$1PAAN~"
+    - "xform~(^|[ '])pq(?=$|[ 'vxq])~$1PIU~"
+    - "xform~(^|[ '])pr(?=$|[ 'vxq])~$1PUT~"
+    - "xform~(^|[ '])ps(?=$|[ 'vxq])~$1PUNG~"
+    - "xform~(^|[ '])pt(?=$|[ 'vxq])~$1PUK~"
+    - "xform~(^|[ '])pu(?=$|[ 'vxq])~$1PAAK~"
+    - "xform~(^|[ '])pv(?=$|[ 'vxq])~$1PUI~"
+    - "xform~(^|[ '])pw(?=$|[ 'vxq])~$1PEI~"
+    - "xform~(^|[ '])px(?=$|[ 'vxq])~$1PAA~"
+    - "xform~(^|[ '])py(?=$|[ 'vxq])~$1PUN~"
+    - "xform~(^|[ '])pz(?=$|[ 'vxq])~$1POU~"
+    - "xform~(^|[ '])sa(?=$|[ 'vxq])~$1SAP/SIT~"
+    - "xform~(^|[ '])sb(?=$|[ 'vxq])~$1SIN~"
+    - "xform~(^|[ '])sc(?=$|[ 'vxq])~$1SAU~"
+    - "xform~(^|[ '])sd(?=$|[ 'vxq])~$1SAI~"
+    - "xform~(^|[ '])se(?=$|[ 'vxq])~$1SE/SAK…~"
+    - "xform~(^|[ '])sf(?=$|[ 'vxq])~$1SAT/SOI~"
+    - "xform~(^|[ '])sg(?=$|[ 'vxq])~$1SAANG/SANG…~"
+    - "xform~(^|[ '])sh(?=$|[ 'vxq])~$1SONG~"
+    - "xform~(^|[ '])si(?=$|[ 'vxq])~$1SI/SOK~"
+    - "xform~(^|[ '])sj(?=$|[ 'vxq])~$1SAN/SAAP~"
+    - "xform~(^|[ '])sk(?=$|[ 'vxq])~$1SING~"
+    - "xform~(^|[ '])sl(?=$|[ 'vxq])~$1SOENG/SAAI~"
+    - "xform~(^|[ '])sm(?=$|[ 'vxq])~$1SEK/SAAT…~"
+    - "xform~(^|[ '])sn(?=$|[ 'vxq])~$1SIK/SAAU~"
+    - "xform~(^|[ '])so(?=$|[ 'vxq])~$1SO~"
+    - "xform~(^|[ '])sp(?=$|[ 'vxq])~$1SAAN/SIP~"
+    - "xform~(^|[ '])sq(?=$|[ 'vxq])~$1SIU~"
+    - "xform~(^|[ '])sr(?=$|[ 'vxq])~$1SYUN~"
+    - "xform~(^|[ '])ss(?=$|[ 'vxq])~$1SUNG~"
+    - "xform~(^|[ '])st(?=$|[ 'vxq])~$1SYUT/SUK…~"
+    - "xform~(^|[ '])su(?=$|[ 'vxq])~$1SEON/SAAK~"
+    - "xform~(^|[ '])sv(?=$|[ 'vxq])~$1SEOI~"
+    - "xform~(^|[ '])sw(?=$|[ 'vxq])~$1SYU/SEI~"
+    - "xform~(^|[ '])sx(?=$|[ 'vxq])~$1SAA~"
+    - "xform~(^|[ '])sy(?=$|[ 'vxq])~$1SAAM/SOEK~"
+    - "xform~(^|[ '])sz(?=$|[ 'vxq])~$1SAM/SOU~"
+    - "xform~(^|[ '])ta(?=$|[ 'vxq])~$1TIT/TAP~"
+    - "xform~(^|[ '])tb(?=$|[ 'vxq])~$1TIN~"
+    - "xform~(^|[ '])tc(?=$|[ 'vxq])~$1TAU~"
+    - "xform~(^|[ '])td(?=$|[ 'vxq])~$1TAI~"
+    - "xform~(^|[ '])te(?=$|[ 'vxq])~$1TOE~"
+    - "xform~(^|[ '])tf(?=$|[ 'vxq])~$1TOI~"
+    - "xform~(^|[ '])tg(?=$|[ 'vxq])~$1TENG/TANG~"
+    - "xform~(^|[ '])th(?=$|[ 'vxq])~$1TONG~"
+    - "xform~(^|[ '])ti(?=$|[ 'vxq])~$1TOK~"
+    - "xform~(^|[ '])tj(?=$|[ 'vxq])~$1TAAP/TAN~"
+    - "xform~(^|[ '])tk(?=$|[ 'vxq])~$1TING~"
+    - "xform~(^|[ '])tl(?=$|[ 'vxq])~$1TAAI~"
+    - "xform~(^|[ '])tm(?=$|[ 'vxq])~$1TIM/TEK…~"
+    - "xform~(^|[ '])tn(?=$|[ 'vxq])~$1TIK~"
+    - "xform~(^|[ '])to(?=$|[ 'vxq])~$1TO~"
+    - "xform~(^|[ '])tp(?=$|[ 'vxq])~$1TAAN/TIP~"
+    - "xform~(^|[ '])tq(?=$|[ 'vxq])~$1TIU~"
+    - "xform~(^|[ '])tr(?=$|[ 'vxq])~$1TYUN~"
+    - "xform~(^|[ '])ts(?=$|[ 'vxq])~$1TUNG~"
+    - "xform~(^|[ '])tt(?=$|[ 'vxq])~$1TYUT/TUK…~"
+    - "xform~(^|[ '])tu(?=$|[ 'vxq])~$1TEON~"
+    - "xform~(^|[ '])tv(?=$|[ 'vxq])~$1TEOI~"
+    - "xform~(^|[ '])tx(?=$|[ 'vxq])~$1TAA~"
+    - "xform~(^|[ '])ty(?=$|[ 'vxq])~$1TAAM~"
+    - "xform~(^|[ '])tz(?=$|[ 'vxq])~$1TOU/TAM~"
+    - "xform~(^|[ '])ud(?=$|[ 'vxq])~$1GWAI~"
+    - "xform~(^|[ '])uf(?=$|[ 'vxq])~$1GWAT~"
+    - "xform~(^|[ '])ug(?=$|[ 'vxq])~$1GWANG/GWAANG~"
+    - "xform~(^|[ '])uh(?=$|[ 'vxq])~$1GWONG~"
+    - "xform~(^|[ '])ui(?=$|[ 'vxq])~$1GWOK~"
+    - "xform~(^|[ '])uj(?=$|[ 'vxq])~$1GWAN~"
+    - "xform~(^|[ '])uk(?=$|[ 'vxq])~$1GWING~"
+    - "xform~(^|[ '])ul(?=$|[ 'vxq])~$1GWAAI~"
+    - "xform~(^|[ '])um(?=$|[ 'vxq])~$1GWAAT/GWEK~"
+    - "xform~(^|[ '])un(?=$|[ 'vxq])~$1GWIK~"
+    - "xform~(^|[ '])uo(?=$|[ 'vxq])~$1GWO~"
+    - "xform~(^|[ '])up(?=$|[ 'vxq])~$1GWAAN~"
+    - "xform~(^|[ '])uu(?=$|[ 'vxq])~$1GWAAK~"
+    - "xform~(^|[ '])uw(?=$|[ 'vxq])~$1GWEI~"
+    - "xform~(^|[ '])ux(?=$|[ 'vxq])~$1GWAA~"
+    - "xform~(^|[ '])wd(?=$|[ 'vxq])~$1WAI~"
+    - "xform~(^|[ '])we(?=$|[ 'vxq])~$1WE~"
+    - "xform~(^|[ '])wf(?=$|[ 'vxq])~$1WAT~"
+    - "xform~(^|[ '])wg(?=$|[ 'vxq])~$1WAANG/WANG~"
+    - "xform~(^|[ '])wh(?=$|[ 'vxq])~$1WONG~"
+    - "xform~(^|[ '])wi(?=$|[ 'vxq])~$1WOK/WI~"
+    - "xform~(^|[ '])wj(?=$|[ 'vxq])~$1WAN~"
+    - "xform~(^|[ '])wk(?=$|[ 'vxq])~$1WING~"
+    - "xform~(^|[ '])wl(?=$|[ 'vxq])~$1WAAI~"
+    - "xform~(^|[ '])wm(?=$|[ 'vxq])~$1WAAT~"
+    - "xform~(^|[ '])wn(?=$|[ 'vxq])~$1WIK~"
+    - "xform~(^|[ '])wo(?=$|[ 'vxq])~$1WO~"
+    - "xform~(^|[ '])wp(?=$|[ 'vxq])~$1WAAN~"
+    - "xform~(^|[ '])wr(?=$|[ 'vxq])~$1WUT~"
+    - "xform~(^|[ '])wu(?=$|[ 'vxq])~$1WU/WAAK~"
+    - "xform~(^|[ '])wv(?=$|[ 'vxq])~$1WUI~"
+    - "xform~(^|[ '])wx(?=$|[ 'vxq])~$1WAA~"
+    - "xform~(^|[ '])wy(?=$|[ 'vxq])~$1WUN~"
+    - "xform~(^|[ '])ya(?=$|[ 'vxq])~$1NGAP/NGIT~"
+    - "xform~(^|[ '])yc(?=$|[ 'vxq])~$1NGAU~"
+    - "xform~(^|[ '])yd(?=$|[ 'vxq])~$1NGAI~"
+    - "xform~(^|[ '])ye(?=$|[ 'vxq])~$1NGAK~"
+    - "xform~(^|[ '])yf(?=$|[ 'vxq])~$1NGOI/NGAT~"
+    - "xform~(^|[ '])yg(?=$|[ 'vxq])~$1NGAANG/NGANG~"
+    - "xform~(^|[ '])yh(?=$|[ 'vxq])~$1NGONG~"
+    - "xform~(^|[ '])yi(?=$|[ 'vxq])~$1NGOK~"
+    - "xform~(^|[ '])yj(?=$|[ 'vxq])~$1NGAN/NGAAP~"
+    - "xform~(^|[ '])yl(?=$|[ 'vxq])~$1NGAAI~"
+    - "xform~(^|[ '])ym(?=$|[ 'vxq])~$1NGAAT~"
+    - "xform~(^|[ '])yn(?=$|[ 'vxq])~$1NGAAU~"
+    - "xform~(^|[ '])yo(?=$|[ 'vxq])~$1NGO~"
+    - "xform~(^|[ '])yp(?=$|[ 'vxq])~$1NGAAN~"
+    - "xform~(^|[ '])yq(?=$|[ 'vxq])~$1NGON~"
+    - "xform~(^|[ '])yu(?=$|[ 'vxq])~$1NGAAK~"
+    - "xform~(^|[ '])yx(?=$|[ 'vxq])~$1NGAA~"
+    - "xform~(^|[ '])yy(?=$|[ 'vxq])~$1NGAAM~"
+    - "xform~(^|[ '])yz(?=$|[ 'vxq])~$1NGOU/NGAM~"
+    - "xform~(^|[ '])za(?=$|[ 'vxq])~$1ZIT/ZAP~"
+    - "xform~(^|[ '])zb(?=$|[ 'vxq])~$1ZIN/ZEM~"
+    - "xform~(^|[ '])zc(?=$|[ 'vxq])~$1ZAU~"
+    - "xform~(^|[ '])zd(?=$|[ 'vxq])~$1ZAI~"
+    - "xform~(^|[ '])ze(?=$|[ 'vxq])~$1ZE/ZAK…~"
+    - "xform~(^|[ '])zf(?=$|[ 'vxq])~$1ZOI/ZAT~"
+    - "xform~(^|[ '])zg(?=$|[ 'vxq])~$1ZANG/ZENG…~"
+    - "xform~(^|[ '])zh(?=$|[ 'vxq])~$1ZONG~"
+    - "xform~(^|[ '])zi(?=$|[ 'vxq])~$1ZI/ZOK~"
+    - "xform~(^|[ '])zj(?=$|[ 'vxq])~$1ZAN/ZAAP~"
+    - "xform~(^|[ '])zk(?=$|[ 'vxq])~$1ZING~"
+    - "xform~(^|[ '])zl(?=$|[ 'vxq])~$1ZOENG/ZAAI~"
+    - "xform~(^|[ '])zm(?=$|[ 'vxq])~$1ZEK/ZIM…~"
+    - "xform~(^|[ '])zn(?=$|[ 'vxq])~$1ZIK/ZAAU~"
+    - "xform~(^|[ '])zo(?=$|[ 'vxq])~$1ZO~"
+    - "xform~(^|[ '])zp(?=$|[ 'vxq])~$1ZIP/ZAAN~"
+    - "xform~(^|[ '])zq(?=$|[ 'vxq])~$1ZIU~"
+    - "xform~(^|[ '])zr(?=$|[ 'vxq])~$1ZYUN~"
+    - "xform~(^|[ '])zs(?=$|[ 'vxq])~$1ZUNG~"
+    - "xform~(^|[ '])zt(?=$|[ 'vxq])~$1ZUK/ZYUT…~"
+    - "xform~(^|[ '])zu(?=$|[ 'vxq])~$1ZEON/ZAAK~"
+    - "xform~(^|[ '])zv(?=$|[ 'vxq])~$1ZEOI~"
+    - "xform~(^|[ '])zw(?=$|[ 'vxq])~$1ZYU~"
+    - "xform~(^|[ '])zx(?=$|[ 'vxq])~$1ZAA~"
+    - "xform~(^|[ '])zy(?=$|[ 'vxq])~$1ZOEK/ZAAM~"
+    - "xform~(^|[ '])zz(?=$|[ 'vxq])~$1ZOU/ZAM~"
+    - xform/([A-Z])vv(?=$|[ '])/${1}4/
+    - xform/([A-Z])xx(?=$|[ '])/${1}5/
+    - xform/([A-Z])qq(?=$|[ '])/${1}6/
+    - xform/([A-Z])v(?=$|[ '])/${1}1/
+    - xform/([A-Z])x(?=$|[ '])/${1}2/
+    - xform/([A-Z])q(?=$|[ '])/${1}3/
+    - xlit/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/
+
+
+loengfan:
+  tag: radical_lookup              # 併入 U：同小鶴拆字共用前綴
+  dictionary: loengfan_shuangpin   # 部件用雙拼碼，見 tools/gen_loengfan.py
+  enable_user_dict: false
+  enable_sentence: false
+  enable_completion: true
+  prefix: "U"
+  tips: 〔兩分〕
+
+stroke:
+  tag: stroke
+  dictionary: stroke
+  prefix: "x"
+  suffix: ";"
+  tips: 〔筆畫〕
+  preedit_format:
+    - xlit/hspnz/一丨丿丶乙/
+
+
+radical_lookup:
+  tag: radical_lookup
+  dictionary: radical_flypy
+  enable_sentence: false
+  enable_user_dict: false
+  prefix: "U"
+  tips: 〔拆字〕
+  comment_format:
+    - erase/^.*$//
+
+jyut6ping3_reverse_lookup:
+  tags: [ stroke, radical_lookup ]
+  overwrite_comment: false
+  dictionary: jyut6ping3
+
+variants_hk:
+  option_name: variants_hk
+  opencc_config: t2hkf.json
+
+trad_tw:
+  option_name: trad_tw
+  opencc_config: t2tw.json
+
+punctuator:
+  import_preset: symbols_cantonese
+
+key_binder:
+  import_preset: default
+
+recognizer:
+  import_preset: default
+  patterns:
+    punct: "^/([0-9]0?|[a-z]+)$"
+    stroke: "^x[hspnz]*;?$"
+    radical_lookup: "^U[a-z]*'?$"
+    uppercase: "[A-TV-Z][-_+.'0-9A-Za-z]*$|U[-_+.'0-9A-Z][-_+.'0-9A-Za-z]*$"
+
+__patch:
+  - grammar:/hant?
+  - jyut6ping3_shuangpin.custom:/patch?
+  - jyut6ping3_shuangpin.device:/patch?   # 只放喺個別裝置（例如手機改綁以詞定字鍵），唔隨打包同步

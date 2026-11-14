@@ -1,0 +1,417 @@
+{
+ "version": "0.3",
+ "rows": [
+  "qwertyuiop",
+  "asdfghjkl",
+  "zxcvbnm"
+ ],
+ "keys": {
+  "a": {
+   "initial": "",
+   "side": "旁路",
+   "finals": [
+    {
+     "f": "ap",
+     "kind": "longshort"
+    },
+    {
+     "f": "it",
+     "kind": "rote"
+    },
+    {
+     "f": "a",
+     "kind": "xiaohe"
+    }
+   ]
+  },
+  "b": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "in",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "em",
+     "kind": "family"
+    }
+   ]
+  },
+  "c": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "au",
+     "kind": "sound"
+    }
+   ]
+  },
+  "d": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ai",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "ot",
+     "kind": "family"
+    }
+   ]
+  },
+  "e": {
+   "initial": "",
+   "side": "旁路",
+   "finals": [
+    {
+     "f": "e",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "ak",
+     "kind": "longshort"
+    },
+    {
+     "f": "oe",
+     "kind": "family"
+    }
+   ]
+  },
+  "f": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "at",
+     "kind": "longshort"
+    },
+    {
+     "f": "oi",
+     "kind": "rote"
+    },
+    {
+     "f": "et",
+     "kind": "family"
+    }
+   ]
+  },
+  "g": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ang",
+     "kind": "sound"
+    },
+    {
+     "f": "aang",
+     "kind": "sound"
+    },
+    {
+     "f": "eng",
+     "kind": "xiaohe"
+    }
+   ]
+  },
+  "h": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ong",
+     "kind": "sound"
+    }
+   ]
+  },
+  "i": {
+   "initial": "kw",
+   "side": "",
+   "finals": [
+    {
+     "f": "i",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "ok",
+     "kind": "rote"
+    }
+   ]
+  },
+  "j": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "an",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "aap",
+     "kind": "longshort"
+    }
+   ]
+  },
+  "k": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ing",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "ng（五）",
+     "kind": "family"
+    }
+   ]
+  },
+  "l": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "oeng",
+     "kind": "sound"
+    },
+    {
+     "f": "aai",
+     "kind": "longshort"
+    },
+    {
+     "f": "ep",
+     "kind": "family"
+    }
+   ]
+  },
+  "m": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "im",
+     "kind": "sound"
+    },
+    {
+     "f": "aat",
+     "kind": "longshort"
+    },
+    {
+     "f": "ek",
+     "kind": "rote"
+    }
+   ]
+  },
+  "n": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ik",
+     "kind": "rote"
+    },
+    {
+     "f": "aau",
+     "kind": "sound"
+    }
+   ]
+  },
+  "o": {
+   "initial": "Ø",
+   "side": "",
+   "finals": [
+    {
+     "f": "o",
+     "kind": "xiaohe"
+    }
+   ]
+  },
+  "p": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "aan",
+     "kind": "longshort"
+    },
+    {
+     "f": "ip",
+     "kind": "sound"
+    }
+   ]
+  },
+  "q": {
+   "initial": "",
+   "side": "調 3/6",
+   "finals": [
+    {
+     "f": "iu",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "on",
+     "kind": "rote"
+    }
+   ]
+  },
+  "r": {
+   "initial": "",
+   "side": "旁路 · rq 日期",
+   "finals": [
+    {
+     "f": "yun",
+     "kind": "sound"
+    },
+    {
+     "f": "ut",
+     "kind": "family"
+    },
+    {
+     "f": "eu",
+     "kind": "family"
+    }
+   ]
+  },
+  "s": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ung",
+     "kind": "sound"
+    }
+   ]
+  },
+  "t": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "uk",
+     "kind": "rote"
+    },
+    {
+     "f": "eot",
+     "kind": "family"
+    },
+    {
+     "f": "yut",
+     "kind": "sound"
+    }
+   ]
+  },
+  "u": {
+   "initial": "gw",
+   "side": "",
+   "finals": [
+    {
+     "f": "u",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "eon",
+     "kind": "family"
+    },
+    {
+     "f": "aak",
+     "kind": "longshort"
+    }
+   ]
+  },
+  "v": {
+   "initial": "",
+   "side": "調 1/4",
+   "finals": [
+    {
+     "f": "eoi",
+     "kind": "sound"
+    },
+    {
+     "f": "m（唔）",
+     "kind": "family"
+    },
+    {
+     "f": "ui",
+     "kind": "xiaohe"
+    }
+   ]
+  },
+  "w": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ei",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "yu",
+     "kind": "rote"
+    }
+   ]
+  },
+  "x": {
+   "initial": "",
+   "side": "調 2/5 · 筆畫",
+   "finals": [
+    {
+     "f": "aa",
+     "kind": "sound"
+    }
+   ]
+  },
+  "y": {
+   "initial": "ng",
+   "side": "",
+   "finals": [
+    {
+     "f": "aam",
+     "kind": "longshort"
+    },
+    {
+     "f": "un",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "oek",
+     "kind": "rote"
+    }
+   ]
+  },
+  "z": {
+   "initial": "",
+   "side": "",
+   "finals": [
+    {
+     "f": "ou",
+     "kind": "xiaohe"
+    },
+    {
+     "f": "am",
+     "kind": "longshort"
+    }
+   ]
+  }
+ },
+ "legend": {
+  "xiaohe": "沿用小鶴",
+  "sound": "對應普通話讀音",
+  "longshort": "長右短左",
+  "family": "罕用，跟同鍵",
+  "rote": "死記"
+ },
+ "kinds": [
+  "xiaohe",
+  "sound",
+  "longshort",
+  "family",
+  "rote"
+ ],
+ "note": "聲調 v=1 vv=4 x=2 xx=5 q=3 qq=6 · U 拆字 · [ ] 以詞定字",
+ "mnemonic": [
+  "潮起北川月，南湖詩歌晚。熱風西來，冷江雲影涼。草花流水天色染。",
+  "橋樹斜泉竹，觀春落波灣。別夢歸海，燈光聞清唱。早茶樓裏先食點。"
+ ]
+}
